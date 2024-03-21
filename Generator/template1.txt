@@ -1,0 +1,55 @@
+use std::arch::asm;
+use std::io::prelude::*;
+use std::{fs, process};
+
+const DLL_NAME: &str = r"{DLL_NAME}";
+const LOG_NAME: &str = r"{LOG_PATH}";
+
+static mut ADDRESSES: [isize;{NUM_FUNCTIONS}] = [0;{NUM_FUNCTIONS}];
+
+fn terminate_process()
+{
+    let mut file = fs::OpenOptions::new().create(true).append(true).open(LOG_NAME).unwrap();
+    file.write_all(b"Error ocurred!").unwrap();
+    process::exit(-1);
+}
+
+fn gateway(index: i32) -> isize 
+{
+    
+    let func_name = get_function_name(index);
+    if func_name.is_empty()
+    {
+        return (terminate_process as *const()) as isize;
+    }
+
+    unsafe
+    {
+        if ADDRESSES[index as usize] != 0
+        {
+            let mut file = fs::OpenOptions::new().create(true).append(true).open(LOG_NAME).unwrap();
+            file.write_all(func_name.as_bytes()).unwrap();
+            file.write_all(b"\n").unwrap();
+            return ADDRESSES[index as usize];
+        }
+    }
+
+    let mut file = fs::OpenOptions::new().create(true).append(true).open(LOG_NAME).unwrap();
+    file.write_all(func_name.as_bytes()).unwrap();
+    file.write_all(b"\n").unwrap();
+
+
+    let dll_address = dinvoke_rs::dinvoke::load_library_a(DLL_NAME);
+    if dll_address == 0
+    {
+        return (terminate_process as *const()) as isize;
+    }
+    let func_address = dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name);
+    
+    unsafe
+    {
+        ADDRESSES[index as usize] = func_address;
+    }
+
+    func_address
+}

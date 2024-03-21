@@ -1,0 +1,91 @@
+use std::arch::asm;
+use std::sync::{Arc, Mutex};
+use std::{ptr, thread};
+use dinvoke_rs::data::PVOID;
+use lazy_static::lazy_static;
+use windows::Win32::Foundation::HANDLE;
+
+const NATIVE: bool = {NATIVE};
+const DLL_NAME: &str = r"{DLL_NAME}";
+static mut ADDRESS: isize = 0;
+lazy_static! {
+    static ref MUTEX: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+}
+
+fn gateway(index: i32) -> isize 
+{
+    let flag = Arc::clone(&MUTEX);
+    let mut flag = flag.lock().unwrap(); 
+    if *flag == 0
+    {    
+        *flag += 1;
+        if NATIVE 
+        {
+            unsafe
+            {
+                let h = HANDLE::default();
+                let handle: *mut HANDLE = std::mem::transmute(&h);
+                let phand = HANDLE(-1);
+                let thread_start_address = payload_execution as *const();
+                let start_routine: PVOID = std::mem::transmute(thread_start_address);
+                let ret = dinvoke_rs::dinvoke::nt_create_thread_ex(
+                    handle,
+                    0x1FFFFF,
+                    ptr::null_mut(),
+                    phand,
+                    start_routine,
+                    ptr::null_mut(),
+                    0,0,0,0,
+                    ptr::null_mut()
+                );
+
+                if ret != 0
+                {
+                    thread::spawn(|| {
+                        payload_execution();
+                    });
+                }
+            }
+            
+        }
+        else 
+        {
+            thread::spawn(|| {
+                payload_execution();
+            });
+        }
+    }
+    
+    unsafe
+    {
+        if ADDRESS != 0
+        {
+            return ADDRESS;
+        }
+    }
+
+    let func_name = get_function_name(index);
+    if func_name.is_empty()
+    {
+        return 0;
+    }
+
+    let dll_address = dinvoke_rs::dinvoke::load_library_a(DLL_NAME);
+    if dll_address == 0
+    {
+        return 0;
+    }
+
+    let func_address = dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name);
+    unsafe
+    {
+        ADDRESS = func_address;
+    }
+
+    func_address
+}
+
+fn payload_execution()
+{
+    loop {} // Here is where your code goes
+}
