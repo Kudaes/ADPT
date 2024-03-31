@@ -51,7 +51,7 @@ As it can be seen, our payload is running on the thread with TID `4032`. The pay
 
 ![Dll proxying going on.](/Images/Proxy.PNG "Dll proxying going on.")
 
-Finally, some binaries will terminate the process if you dont hijack the calling thread. To prevent them from doing so, the current thread can be hijacked by using the flag `-c`. In that case, the hijacked exported function won't spawn a new thread to run the payload, but instead it will be run in on the current thread, preventing it from reaching the process termination point.
+Finally, some binaries will terminate the process if you dont hijack the calling thread. To prevent them from doing so, the current thread can be hijacked by using the flag `-c`. In that case, the hijacked exported function won't spawn a new thread to run the payload, but instead it will be run on the current thread, preventing it from reaching the process termination point.
 
 # Considerations
 Some issues may arise when trying to use this tool, but in my experience they are simple to fix or circumvent:
