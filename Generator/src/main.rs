@@ -33,6 +33,15 @@ static TEMPLATE3: &str = r#"#[no_mangle]
 fn {FORWARDED_NAME}() {
 }"#;
 
+static TEMPLATE4: &str = r#"
+#[no_mangle]
+fn {FUNC_NAME}(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64, arg8:u64, arg9:u64, arg10:u64, arg11:u64, arg12:u64, arg13:u64, arg14:u64, arg15:u64, arg16:u64, arg17:u64, arg18:u64, arg19:u64, arg20:u64) -> u64
+{
+    let ret = gateway(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20);
+    ret
+}
+"#;
+
 
 fn main() 
 {
@@ -165,18 +174,14 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     let number_of_functions: String = names_info.len().to_string();
     let module_name = original_dll_path.replace(".dll","");
     let mut first_string = String::new();
-    let mut second_string = "\nfn get_function_name(index: i32) -> String\n{\n\tmatch index\n\t{".to_string();
     let mut third_string: String = String::new();
     let mut def_file_string = "EXPORTS\n".to_string();
     for (i,name) in names_info.iter().enumerate()
     {
         if &name.0 == &hijacked_export
         {
-            let template1 = TEMPLATE1.replace("{FUNC_NAME}", &name.0).replace("{INDEX}", &i.to_string());
-            first_string.push_str(&template1);
-            let template2 = TEMPLATE2.replace("{NUM}", &i.to_string()).replace("{NAME}", &name.0);
-            second_string.push_str("\n\t\t");
-            second_string.push_str(&template2);
+            let template4 = TEMPLATE4.replace("{FUNC_NAME}", &name.0);
+            first_string.push_str(&template4);
             let export_string = format!("{} @{}\n",&name.0, name.1);
             def_file_string.push_str(&export_string);
         }
@@ -191,8 +196,6 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
     }
 
-    let ending = "\n\t\t_ => {String::new()}\n\t}\n} ";
-    second_string.push_str(ending);
     let path = env::current_exe().unwrap();
     let path = path.to_str().unwrap();
     let path = path.replace("generator.exe", "");
@@ -202,14 +205,15 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     } else {
         template_path = format!("{}{}", &path, r"..\..\template4.txt");
     }
-    let mut content = fs::read_to_string(&template_path).expect("[x] Couldn't read template2.txt file.");
+    let mut content = fs::read_to_string(&template_path).expect("[x] Couldn't read template file.");
 
     content = content.replace("{DLL_NAME}", &original_dll_path)
                 .replace("{NUM_FUNCTIONS}", &number_of_functions)
-                .replace("{NATIVE}", &native);
+                .replace("{NATIVE}", &native)
+                .replace("{FUNC_NAME}", &hijacked_export);
+            
     content.push_str(&first_string);
     content.push_str(&third_string);
-    content.push_str(&second_string);
 
     let lib_path = format!("{}{}", path, r"..\..\..\ProxyDll\src\lib.rs");
     let _ = fs::write(lib_path, content);    

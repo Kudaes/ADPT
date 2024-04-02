@@ -1,4 +1,3 @@
-use std::arch::asm;
 use std::sync::{Arc, Mutex};
 use lazy_static::lazy_static;
 
@@ -6,7 +5,7 @@ lazy_static! {
     static ref MUTEX: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 }
 
-fn gateway(index: i32) 
+fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64, arg8:u64, arg9:u64, arg10:u64, arg11:u64, arg12:u64, arg13:u64, arg14:u64, arg15:u64, arg16:u64, arg17:u64, arg18:u64, arg19:u64, arg20:u64) -> u64
 {
     let flag = Arc::clone(&MUTEX);
     let mut flag = flag.lock().unwrap(); 
@@ -17,6 +16,8 @@ fn gateway(index: i32)
     }
 
     loop {} // Hijack current thread, don't let the process exit
+
+    0
 }
 
 fn payload_execution()
