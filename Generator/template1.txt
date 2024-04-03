@@ -10,7 +10,7 @@ static mut ADDRESSES: [isize;{NUM_FUNCTIONS}] = [0;{NUM_FUNCTIONS}];
 fn terminate_process()
 {
     let mut file = fs::OpenOptions::new().create(true).append(true).open(LOG_NAME).unwrap();
-    file.write_all(b"Error ocurred!").unwrap();
+    file.write_all(b"\nError ocurred!").unwrap();
     process::exit(-1);
 }
 
