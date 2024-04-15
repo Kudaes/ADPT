@@ -176,7 +176,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     let mut first_string = String::new();
     let mut third_string: String = String::new();
     let mut def_file_string = "EXPORTS\n".to_string();
-    for (i,name) in names_info.iter().enumerate()
+    for (_, name) in names_info.iter().enumerate()
     {
         if &name.0 == &hijacked_export
         {
