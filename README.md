@@ -56,6 +56,6 @@ Finally, some binaries will terminate the process if you dont hijack the calling
 # Considerations
 Some issues may arise when trying to use this tool, but in my experience they are simple to fix or circumvent:
 * If at the time of compiling the tracer or proxy dll you are getting `error LNK2005: symbol already defined` error messages from the linker, just uncomment the line 5 of the `.cargo\config` file and try again.
-* If for any reason you need to statically link the C runtime in your dlls, [check this out](https://github.com/Kudaes/rust_tips_and_tricks?tab=readme-ov-file#vcruntime).
+* If for any reason you need to statically link the C runtime in your dlls, [check this out](https://github.com/Kudaes/rust_tips_and_tricks?tab=readme-ov-file#vcruntime) or pass the flag `-r` to the generator.
 
 If you find any other issue, report it to me!

@@ -56,6 +56,7 @@ fn main()
     opts.optopt("l", "logpath", r"Path in which to write the log file [default: C:\Windows\Temp\result.log].", "");
     opts.optflag("n", "native", "Use NtCreateThreadEx instead of std::thread to run the payload.");
     opts.optflag("c", "current-thread", "Hijack the current thread instead of running the payload on a new thread.");
+    opts.optflag("r", "link-runtime", "Statically link the C runtime.");
 
 
     let matches = match opts.parse(&args[1..]) 
@@ -73,6 +74,7 @@ fn main()
     let mut hijacked_export = String::new();
     let mut native = "false".to_string();
     let mut hijack = false;
+    let mut link_runtime = false;
     let path = matches.opt_str("p").unwrap();
     let mode = matches.opt_str("m").unwrap();
 
@@ -92,10 +94,14 @@ fn main()
         hijack = true;
     }
 
+    if matches.opt_present("r") {
+        link_runtime = true;
+    }
+
     if mode == "trace" {
-        generate_tracer_dll(path, log_path);
+        generate_tracer_dll(path, log_path, link_runtime);
     }else {
-        generate_proxy_dll(path, hijacked_export, native, hijack);
+        generate_proxy_dll(path, hijacked_export, native, hijack, link_runtime);
     }
 
     println!("[+] Process completed.")
@@ -107,7 +113,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn generate_tracer_dll(original_dll_path: String, log_path: String)
+fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime: bool)
 {
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
     if loaded_dll == 0 {
@@ -159,12 +165,15 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String)
 
     let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read cargo.toml file.");
     config_content = config_content.replace("{DEF_PATH}", &def_path);
+    if link_runtime {
+        config_content = config_content.replace(r##"#"-C", "target-feature=+crt-static""##, r#""-C", "target-feature=+crt-static""#);
+    }
 
     let _ = fs::write(config_path, config_content);
 
 }
 
-fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native: String, hijack: bool)
+fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native: String, hijack: bool, link_runtime: bool)
 {
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
     if loaded_dll == 0 {
@@ -226,6 +235,10 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
     let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read cargo.toml file.");
     config_content = config_content.replace("{DEF_PATH}", &def_path);
+    if link_runtime {
+        config_content = config_content.replace(r##"#"-C", "target-feature=+crt-static""##, r#""-C", "target-feature=+crt-static""#);
+    }
+
     let _ = fs::write(config_path, config_content);
 
 
