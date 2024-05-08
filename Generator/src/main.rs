@@ -233,7 +233,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     let config_path = format!("{}{}", path, r"..\..\..\ProxyDll\.cargo\config");
     let template_path: String = format!("{}{}", &path, r"..\..\template3.txt");
 
-    let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read cargo.toml file.");
+    let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read config template file.");
     config_content = config_content.replace("{DEF_PATH}", &def_path);
     if link_runtime {
         config_content = config_content.replace(r##"#"-C", "target-feature=+crt-static""##, r#""-C", "target-feature=+crt-static""#);
