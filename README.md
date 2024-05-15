@@ -1,6 +1,6 @@
 # Description
 
-Another Dll Proxying Tool is exactly what it sounds like, another tool that allows you to automate the exploitation of dll hijack/sideloading opportunities. The goal was to create a simple tool for lazy people like me, meaning that I could abuse this hijack opportunities without the need to:
+Another Dll Proxying Tool is exactly what it sounds like, another tool that allows you to automate the exploitation of dll hijack/sideloading opportunities. The goal was to create a simple tool for lazy people like me, meaning that I could abuse these hijack opportunities without having to:
 * Open Api Monitor or reverse anything in order to find out which exported functions from the original dll are being called in the first place.
 * Use GHidra or any other reversing tool in order to obtain any function's signature (in/out parameters and so on).
 * Translate C types and structs to Rust in order to recreate those exported function definitions.
@@ -51,11 +51,11 @@ As it can be seen, our payload is running on the thread with TID `4032`. The pay
 
 ![Dll proxying going on.](/Images/Proxy.PNG "Dll proxying going on.")
 
-Finally, some binaries will terminate the process if you dont hijack the calling thread. To prevent them from doing so, the current thread can be hijacked by using the flag `-c`. In that case, the hijacked exported function won't spawn a new thread to run the payload, but instead it will be run on the current thread, preventing it from reaching the process termination point.
+Finally, some binaries will terminate the process if you dont hijack the main thread. To prevent them from doing so, the current thread can be hijacked by using the flag `-c`. In that case, the hijacked exported function won't spawn a new thread to run the payload, but instead it will be run on the current thread, preventing it from reaching the process termination point.
 
 # Considerations
 Some issues may arise when trying to use this tool, but in my experience they are simple to fix or circumvent:
-* If at the time of compiling the tracer or proxy dll you are getting `error LNK2005: symbol already defined` error messages from the linker, just uncomment the line 5 of the `.cargo\config` file and try again.
+* If at the time of compiling the tracer or proxy dll you are getting `error LNK2005: symbol already defined` error messages from the linker, just uncomment the line 6 of the `.cargo\config` file and try again.
 * If for any reason you need to statically link the C runtime in your dlls, [check this out](https://github.com/Kudaes/rust_tips_and_tricks?tab=readme-ov-file#vcruntime) or pass the flag `-r` to the generator.
 
 If you find any other issue, report it to me!
