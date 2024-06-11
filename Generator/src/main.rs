@@ -55,7 +55,7 @@ fn main()
     opts.optopt("e", "export", "Exported function in which to execute the payload.", "");
     opts.optopt("l", "logpath", r"Path in which to write the log file [default: C:\Windows\Temp\result.log].", "");
     opts.optflag("n", "native", "Use NtCreateThreadEx instead of std::thread to run the payload.");
-    opts.optflag("c", "current-thread", "Hijack the current thread instead of running the payload on a new thread.");
+    opts.optflag("c", "current-thread", "Hijack the calling thread instead of running the payload on a new thread.");
     opts.optflag("r", "link-runtime", "Statically link the C runtime.");
 
 
@@ -113,6 +113,23 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
+fn demangle_name(mangled_name: &String) -> String
+{
+    let demangled: String = mangled_name
+    .replace("?", "1")
+    .replace("!", "2")
+    .replace("@", "3")
+    .replace("$", "4")
+    .chars().map(|c| if c.is_ascii() || c == '_' { c } else { '6' })
+    .collect();
+
+    if demangled == *mangled_name {
+        return demangled;
+    }
+
+    format!("a{}", demangled) // Rust expects that a function name starts with a letter.
+}
+
 fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime: bool)
 {
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
@@ -128,13 +145,14 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
     for (i,name) in names_info.iter().enumerate()
     {
-        let template1 = TEMPLATE1.replace("{FUNC_NAME}", &name.0).replace("{INDEX}", &i.to_string());
+        let demangled_name = demangle_name(&name.0);
+        let template1 = TEMPLATE1.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &i.to_string());
         first_string.push_str(&template1);
-        let template2 = TEMPLATE2.replace("{NUM}", &i.to_string()).replace("{NAME}", &name.0);
+        let template2 = TEMPLATE2.replace("{NUM}", &i.to_string()).replace("{NAME}", &demangled_name);
         second_string.push_str("\n\t\t");
         second_string.push_str(&template2);
 
-        let export_string = format!("{} @{}\n",&name.0, name.1);
+        let export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
         def_file_string.push_str(&export_string);
     }
 
@@ -185,21 +203,45 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     let mut first_string = String::new();
     let mut third_string: String = String::new();
     let mut def_file_string = "EXPORTS\n".to_string();
+
+    let mut mangled_names_detected = false;
+    println!("hijacked_ {}", hijacked_export);
     for (_, name) in names_info.iter().enumerate()
     {
+        let demangled_name = demangle_name(&name.0);
+        if !mangled_names_detected && (demangled_name != name.0)
+        {
+            mangled_names_detected = true;
+            println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols.");
+        }
+
         if &name.0 == &hijacked_export
         {
-            let template4 = TEMPLATE4.replace("{FUNC_NAME}", &name.0);
+            let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name);
             first_string.push_str(&template4);
-            let export_string = format!("{} @{}\n",&name.0, name.1);
+
+            let export_string;
+            if demangled_name != name.0 {
+                export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+            } else {
+                export_string = format!("{} @{}\n", &name.0, name.1);
+            }
+
             def_file_string.push_str(&export_string);
         }
         else 
         {
-            let template3 = TEMPLATE3.replace("{FORWARDED_NAME}", &name.0);
+            let template3 = TEMPLATE3.replace("{FORWARDED_NAME}", &demangled_name);
             third_string.push_str(&template3);
             third_string.push('\n');
-            let export_string = format!("{}={}.{} @{}\n", &name.0, module_name, &name.0, name.1);
+
+            let export_string;
+            if demangled_name != name.0 {
+                export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+            } else {
+                export_string = format!("{}={}.{} @{}\n", &name.0, module_name, &name.0, name.1);
+            }
+
             def_file_string.push_str(&export_string);
         }
 
@@ -243,7 +285,6 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
 
 }
-
 
 pub fn get_function_info(module_base_address: isize) -> Vec<(String,u32)> {
 
