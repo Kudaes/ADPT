@@ -51,7 +51,7 @@ fn main()
     let mut opts = Options::new();
     opts.reqopt("m", "mode", "Create a dll to trace (trace) or proxy (proxy) called exports.", "");
     opts.optflag("h", "help", "Print this help menu.");
-    opts.reqopt("p", "path", "Path to the original dll.", "");
+    opts.reqopt("p", "path", "Path to the dll to be proxied.", "");
     opts.optopt("e", "export", "Exported function in which to execute the payload.", "");
     opts.optopt("l", "logpath", r"Path in which to write the log file [default: C:\Windows\Temp\result.log].", "");
     opts.optflag("n", "native", "Use NtCreateThreadEx instead of std::thread to run the payload.");
@@ -134,6 +134,7 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 {
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
     if loaded_dll == 0 {
+        println!("[x] Dll {original_dll_path} not found.");
         return;
     }
 
@@ -195,17 +196,23 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 {
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
     if loaded_dll == 0 {
+        println!("[x] Dll {original_dll_path} not found.");
         return;
     }
     let names_info = get_function_info(loaded_dll);
     let number_of_functions: String = names_info.len().to_string();
+    if names_info.len() == 0
+    {
+        println!("[x] DLL without exports found.");
+        return;
+    }
+
     let module_name = original_dll_path.replace(".dll","");
     let mut first_string = String::new();
     let mut third_string: String = String::new();
     let mut def_file_string = "EXPORTS\n".to_string();
 
     let mut mangled_names_detected = false;
-    println!("hijacked_ {}", hijacked_export);
     for (_, name) in names_info.iter().enumerate()
     {
         let demangled_name = demangle_name(&name.0);
