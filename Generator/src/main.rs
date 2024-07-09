@@ -104,7 +104,7 @@ fn main()
         generate_proxy_dll(path, hijacked_export, native, hijack, link_runtime);
     }
 
-    println!("[+] Process completed.")
+    println!("[-] Process completed.")
 
 }
 
@@ -194,6 +194,11 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
 fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native: String, hijack: bool, link_runtime: bool)
 {
+    if hijacked_export == "" {
+        println!("[x] An exported function must be selected to run the payload.");
+        return;
+    }
+
     let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
     if loaded_dll == 0 {
         println!("[x] Dll {original_dll_path} not found.");
@@ -224,6 +229,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
         if &name.0 == &hijacked_export
         {
+            println!("[+] Exported function {} found.", &hijacked_export);
             let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name);
             first_string.push_str(&template4);
 
