@@ -6,7 +6,7 @@ use windows::Win32::Foundation::HANDLE;
 
 const NATIVE: bool = {NATIVE};
 const DLL_NAME: &str = r"{DLL_NAME}";
-static mut ADDRESS: isize = 0;
+static mut ADDRESS: usize = 0;
 lazy_static! {
     static ref MUTEX: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 }

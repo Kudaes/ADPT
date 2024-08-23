@@ -100,7 +100,7 @@ fn main()
 
     if mode == "trace" {
         generate_tracer_dll(path, log_path, link_runtime);
-    }else {
+    } else {
         generate_proxy_dll(path, hijacked_export, native, hijack, link_runtime);
     }
 
@@ -132,13 +132,13 @@ fn demangle_name(mangled_name: &String) -> String
 
 fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime: bool)
 {
-    let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
-    if loaded_dll == 0 {
+    let loaded_dll = dinvoke_rs::manualmap::read_and_map_module(&original_dll_path, false, false).unwrap();
+    if loaded_dll.1 == 0 {
         println!("[x] Dll {original_dll_path} not found.");
         return;
     }
 
-    let names_info = get_function_info(loaded_dll);
+    let names_info = get_function_info(loaded_dll.1);
     let number_of_functions: String = names_info.len().to_string();
     let mut first_string = String::new();
     let mut second_string = "\nfn get_function_name(index: i32) -> String\n{\n\tmatch index\n\t{".to_string();
@@ -194,17 +194,22 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
 fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native: String, hijack: bool, link_runtime: bool)
 {
+    if original_dll_path.chars().any(|c| c.is_whitespace()) {
+        println!("[x] The forwarded dll path can't contain spaces in it. Use DOS short name instead.");
+        return;
+    }
+
     if hijacked_export == "" {
         println!("[x] An exported function must be selected to run the payload.");
         return;
     }
 
-    let loaded_dll = dinvoke_rs::dinvoke::load_library_a(&original_dll_path);
-    if loaded_dll == 0 {
+    let loaded_dll = dinvoke_rs::manualmap::read_and_map_module(&original_dll_path, false, false).unwrap();
+    if loaded_dll.1 == 0 {
         println!("[x] Dll {original_dll_path} not found.");
         return;
     }
-    let names_info = get_function_info(loaded_dll);
+    let names_info = get_function_info(loaded_dll.1);
     let number_of_functions: String = names_info.len().to_string();
     if names_info.len() == 0
     {
@@ -299,15 +304,15 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
 }
 
-pub fn get_function_info(module_base_address: isize) -> Vec<(String,u32)> {
+pub fn get_function_info(module_base_address: usize) -> Vec<(String,u32)> {
 
     unsafe
     {
         let mut functions_info: Vec<(String, u32)> = vec![]; 
         let pe_header = *((module_base_address + 0x3C) as *mut i32);
-        let opt_header: isize = module_base_address + (pe_header as isize) + 0x18;
+        let opt_header: usize = module_base_address + (pe_header as usize) + 0x18;
         let magic = *(opt_header as *mut i16);
-        let p_export: isize;
+        let p_export: usize;
 
         if magic == 0x010b {
             p_export = opt_header + 0x60;
@@ -317,16 +322,16 @@ pub fn get_function_info(module_base_address: isize) -> Vec<(String,u32)> {
         }
 
         let export_rva = *(p_export as *mut i32);
-        let ordinal_base =  *((module_base_address + export_rva as isize + 0x10) as *mut u32);
-        let number_of_names = *((module_base_address + export_rva as isize + 0x18) as *mut u32);
-        let names_rva = *((module_base_address + export_rva as isize + 0x20) as *mut u32);
-        let ordinals_rva = *((module_base_address + export_rva as isize + 0x24) as *mut u32);
+        let ordinal_base =  *((module_base_address + export_rva as usize + 0x10) as *mut u32);
+        let number_of_names = *((module_base_address + export_rva as usize + 0x18) as *mut u32);
+        let names_rva = *((module_base_address + export_rva as usize + 0x20) as *mut u32);
+        let ordinals_rva = *((module_base_address + export_rva as usize + 0x24) as *mut u32);
         for x in 0..number_of_names 
         {
 
-            let address = *((module_base_address + names_rva as isize + x as isize * 4) as *mut i32);
-            let ordinal = *((module_base_address + ordinals_rva as isize + x as isize * 2) as *mut u16);
-            let mut function_name_ptr = (module_base_address + address as isize) as *mut u8;
+            let address = *((module_base_address + names_rva as usize + x as usize * 4) as *mut i32);
+            let ordinal = *((module_base_address + ordinals_rva as usize + x as usize * 2) as *mut u16);
+            let mut function_name_ptr = (module_base_address + address as usize) as *mut u8;
             let mut function_name: String = "".to_string();
 
             while *function_name_ptr as char != '\0' // null byte

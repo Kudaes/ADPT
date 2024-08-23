@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dinvoke_rs = "0.1.4"
+dinvoke_rs = "0.1.6"
 getopts = "0.2"

@@ -5,7 +5,7 @@ use std::{fs, process};
 const DLL_NAME: &str = r"{DLL_NAME}";
 const LOG_NAME: &str = r"{LOG_PATH}";
 
-static mut ADDRESSES: [isize;{NUM_FUNCTIONS}] = [0;{NUM_FUNCTIONS}];
+static mut ADDRESSES: [usize;{NUM_FUNCTIONS}] = [0;{NUM_FUNCTIONS}];
 
 fn terminate_process()
 {
@@ -14,13 +14,12 @@ fn terminate_process()
     process::exit(-1);
 }
 
-fn gateway(index: i32) -> isize 
+fn gateway(index: i32) -> usize 
 {
     
     let func_name = get_function_name(index);
-    if func_name.is_empty()
-    {
-        return (terminate_process as *const()) as isize;
+    if func_name.is_empty() {
+        return (terminate_process as *const()) as usize;
     }
 
     unsafe
@@ -40,14 +39,13 @@ fn gateway(index: i32) -> isize
 
 
     let dll_address = dinvoke_rs::dinvoke::load_library_a(DLL_NAME);
-    if dll_address == 0
-    {
-        return (terminate_process as *const()) as isize;
+    if dll_address == 0 {
+        return (terminate_process as *const()) as usize;
     }
+
     let func_address = dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name);
     
-    unsafe
-    {
+    unsafe {
         ADDRESSES[index as usize] = func_address;
     }
 

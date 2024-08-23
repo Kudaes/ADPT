@@ -10,4 +10,4 @@ strip = true
 crate-type = ["cdylib"]
 
 [dependencies]
-dinvoke_rs= "0.1.4"
+dinvoke_rs= "0.1.6"
