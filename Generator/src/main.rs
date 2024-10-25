@@ -37,11 +37,12 @@ static TEMPLATE4: &str = r#"
 #[no_mangle]
 fn {FUNC_NAME}(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64, arg8:u64, arg9:u64, arg10:u64, arg11:u64, arg12:u64, arg13:u64, arg14:u64, arg15:u64, arg16:u64, arg17:u64, arg18:u64, arg19:u64, arg20:u64) -> u64
 {
-    let ret = gateway(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20);
+    let ret = gateway(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, {INDEX});
     ret
 }
 "#;
 
+static TEMPLATE5: &str = r#"{INDEX} => "{FUNC_NAME}".to_string(),"#;
 
 fn main() 
 {
@@ -52,10 +53,10 @@ fn main()
     opts.reqopt("m", "mode", "Create a dll to trace (trace) or proxy (proxy) called exports.", "");
     opts.optflag("h", "help", "Print this help menu.");
     opts.reqopt("p", "path", "Path to the dll to be proxied.", "");
-    opts.optopt("e", "export", "Exported function in which to execute the payload.", "");
+    opts.optopt("e", "export", "A comma separated list containing the exports in which to run the payload.", "");
     opts.optopt("l", "logpath", r"Path in which to write the log file [default: C:\Windows\Temp\result.log].", "");
     opts.optflag("n", "native", "Use NtCreateThreadEx instead of std::thread to run the payload.");
-    opts.optflag("c", "current-thread", "Hijack the calling thread instead of running the payload on a new thread.");
+    opts.optflag("c", "current-thread", "Hijack the calling thread instead of running the payload in a new thread.");
     opts.optflag("r", "link-runtime", "Statically link the C runtime.");
 
 
@@ -71,7 +72,7 @@ fn main()
         return;
     }
     let mut log_path = r"C:\Windows\Temp\result.log".to_string();
-    let mut hijacked_export = String::new();
+    let mut hijacked_exports = String::new();
     let mut native = "false".to_string();
     let mut hijack = false;
     let mut link_runtime = false;
@@ -83,8 +84,10 @@ fn main()
     }
 
     if matches.opt_present("e") {
-        hijacked_export = matches.opt_str("e").unwrap()
+        hijacked_exports = matches.opt_str("e").unwrap();
     }
+
+    let hijacked_exports_vector = hijacked_exports.split(',').collect();
 
     if matches.opt_present("n") {
         native = "true".to_string();
@@ -101,7 +104,7 @@ fn main()
     if mode == "trace" {
         generate_tracer_dll(path, log_path, link_runtime);
     } else {
-        generate_proxy_dll(path, hijacked_export, native, hijack, link_runtime);
+        generate_proxy_dll(path, hijacked_exports_vector, native, hijack, link_runtime);
     }
 
     println!("[-] Process completed.")
@@ -192,15 +195,10 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
 }
 
-fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native: String, hijack: bool, link_runtime: bool)
+fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, native: String, hijack: bool, link_runtime: bool)
 {
     if original_dll_path.chars().any(|c| c.is_whitespace()) {
         println!("[x] The forwarded dll path can't contain spaces in it. Use DOS short name instead.");
-        return;
-    }
-
-    if hijacked_export == "" {
-        println!("[x] An exported function must be selected to run the payload.");
         return;
     }
 
@@ -221,8 +219,10 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     let mut first_string = String::new();
     let mut third_string: String = String::new();
     let mut def_file_string = "EXPORTS\n".to_string();
+    let mut match_statement = String::new();
 
     let mut mangled_names_detected = false;
+    let mut index = 0u32;
     for (_, name) in names_info.iter().enumerate()
     {
         let demangled_name = demangle_name(&name.0);
@@ -232,11 +232,18 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
             println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols.");
         }
 
-        if &name.0 == &hijacked_export
+        if hijacked_exports.contains(&name.0.as_str())
         {
-            println!("[+] Exported function {} found.", &hijacked_export);
-            let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name);
+            println!("[+] Exported function {} found.", &name.0);
+            let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
             first_string.push_str(&template4);
+
+            let template5 = TEMPLATE5.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
+            match_statement.push_str("\t\t");
+            match_statement.push_str(&template5);
+            match_statement.push_str("\n");
+
+            index += 1;
 
             let export_string;
             if demangled_name != name.0 {
@@ -262,7 +269,10 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
 
             def_file_string.push_str(&export_string);
         }
+    }
 
+    if match_statement.ends_with('\n') {
+        match_statement.pop();
     }
 
     let path = env::current_exe().unwrap();
@@ -279,7 +289,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_export: String, native
     content = content.replace("{DLL_NAME}", &original_dll_path)
                 .replace("{NUM_FUNCTIONS}", &number_of_functions)
                 .replace("{NATIVE}", &native)
-                .replace("{FUNC_NAME}", &hijacked_export);
+                .replace("{MATCH_STATEMENT}", &match_statement);
             
     content.push_str(&first_string);
     content.push_str(&third_string);
