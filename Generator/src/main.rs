@@ -182,7 +182,7 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
     let def_path = format!("{}{}", path, r"..\..\..\ExportTracer\file.def").replace(r"\", r"\\");
     let _ = fs::write(&def_path, def_file_string);
 
-    let config_path = format!("{}{}", path, r"..\..\..\ExportTracer\.cargo\config");
+    let config_path = format!("{}{}", path, r"..\..\..\ExportTracer\.cargo\config.toml");
     let template_path: String = format!("{}{}", &path, r"..\..\template3.txt");
 
     let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read cargo.toml file.");
@@ -300,7 +300,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
     let def_path = format!("{}{}", path, r"..\..\..\ProxyDll\file.def").replace(r"\", r"\\");
     let _ = fs::write(&def_path, def_file_string);    
 
-    let config_path = format!("{}{}", path, r"..\..\..\ProxyDll\.cargo\config");
+    let config_path = format!("{}{}", path, r"..\..\..\ProxyDll\.cargo\config.toml");
     let template_path: String = format!("{}{}", &path, r"..\..\template3.txt");
 
     let mut config_content = fs::read_to_string(&template_path).expect("[x] Couldn't read config template file.");
