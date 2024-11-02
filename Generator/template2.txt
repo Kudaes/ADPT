@@ -70,20 +70,17 @@ fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64,
         _ => "".to_string(),
     };
 
-    if func_name.is_empty()
-    {
+    if func_name.is_empty() {
         return 0;
     }
 
     let dll_address = dinvoke_rs::dinvoke::load_library_a(DLL_NAME);
-    if dll_address == 0
-    {
+    if dll_address == 0 {
         return 0;
     }
 
     let func_address = dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name);
-    if func_address == 0
-    {
+    if func_address == 0 {
         return 0;
     }
     

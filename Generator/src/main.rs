@@ -116,8 +116,14 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn demangle_name(mangled_name: &String) -> String
+fn demangle_name(mangled_name: &String, ordinal: u32) -> String
 {
+
+    if mangled_name.is_empty() {
+        let placeholder = format!("{}{}", "OrdinalPlaceholder", ordinal);
+        return placeholder;
+    }
+
     let demangled: String = mangled_name
     .replace("?", "1")
     .replace("!", "2")
@@ -149,15 +155,21 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
     for (i,name) in names_info.iter().enumerate()
     {
-        let demangled_name = demangle_name(&name.0);
+        let demangled_name = demangle_name(&name.0, name.1);
         let template1 = TEMPLATE1.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &i.to_string());
         first_string.push_str(&template1);
         let template2 = TEMPLATE2.replace("{NUM}", &i.to_string()).replace("{NAME}", &demangled_name);
         second_string.push_str("\n\t\t");
         second_string.push_str(&template2);
 
-        let export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
-        def_file_string.push_str(&export_string);
+        if name.0.is_empty() {
+            let export_string = format!("{}={} @{}\n",demangled_name, demangled_name, name.1);
+            def_file_string.push_str(&export_string);
+        } else {
+            let export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+            def_file_string.push_str(&export_string);
+        }
+        
     }
 
     let ending = "\n\t\t_ => {String::new()}\n\t}\n} ";
@@ -225,14 +237,14 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
     let mut index = 0u32;
     for (_, name) in names_info.iter().enumerate()
     {
-        let demangled_name = demangle_name(&name.0);
-        if !mangled_names_detected && (demangled_name != name.0)
+        let demangled_name = demangle_name(&name.0, name.1);
+        if !mangled_names_detected && (demangled_name != name.0) && !demangled_name.contains("OrdinalPlaceholder")
         {
             mangled_names_detected = true;
             println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols.");
         }
 
-        if hijacked_exports.contains(&name.0.as_str())
+        if !&name.0.is_empty() && hijacked_exports.contains(&name.0.as_str())
         {
             println!("[+] Exported function {} found.", &name.0);
             let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
@@ -262,7 +274,11 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
 
             let export_string;
             if demangled_name != name.0 {
-                export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+                if demangled_name.contains("OrdinalPlaceholder") {
+                    export_string = format!("{}={}.#{} @{}\n", demangled_name, module_name, name.1, name.1);
+                } else {
+                    export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+                }
             } else {
                 export_string = format!("{}={}.{} @{}\n", &name.0, module_name, &name.0, name.1);
             }
@@ -333,6 +349,7 @@ pub fn get_function_info(module_base_address: usize) -> Vec<(String,u32)> {
 
         let export_rva = *(p_export as *mut i32);
         let ordinal_base =  *((module_base_address + export_rva as usize + 0x10) as *mut u32);
+        let number_of_exports = *((module_base_address + export_rva as usize + 0x14) as *mut u32);
         let number_of_names = *((module_base_address + export_rva as usize + 0x18) as *mut u32);
         let names_rva = *((module_base_address + export_rva as usize + 0x20) as *mut u32);
         let ordinals_rva = *((module_base_address + export_rva as usize + 0x24) as *mut u32);
@@ -353,6 +370,19 @@ pub fn get_function_info(module_base_address: usize) -> Vec<(String,u32)> {
             let func_ordinal = ordinal_base + ordinal as u32;
             functions_info.push((function_name,func_ordinal));
 
+        }
+
+        let ordinals_list: Vec<u32> = functions_info.iter().map(|(_, num)| *num).collect();
+
+        if number_of_exports > number_of_names 
+        {
+            for i in 0..number_of_exports 
+            {
+                let current_ordinal = ordinal_base + i as u32;
+                if !ordinals_list.contains(&current_ordinal) {
+                    functions_info.push((String::new(),current_ordinal)); // This takes care of those functions exported exclusively by ordinal, like ntdll's ordinal 8
+                }
+            }
         }
 
         functions_info
