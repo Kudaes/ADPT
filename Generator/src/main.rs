@@ -275,7 +275,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
             let export_string;
             if demangled_name != name.0 {
                 if demangled_name.contains("OrdinalPlaceholder") {
-                    export_string = format!("{}={}.#{} @{}\n", demangled_name, module_name, name.1, name.1);
+                    export_string = format!("{}={}.#{} @{} NONAME\n", demangled_name, module_name, name.1, name.1);
                 } else {
                     export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
                 }
