@@ -103,8 +103,11 @@ fn main()
 
     if mode == "trace" {
         generate_tracer_dll(path, log_path, link_runtime);
-    } else {
+    } else if mode == "proxy" {
         generate_proxy_dll(path, hijacked_exports_vector, native, hijack, link_runtime);
+    } else {
+        println!("[x] Unknown mode '{}'.", mode);
+        return;
     }
 
     println!("[-] Process completed.")
