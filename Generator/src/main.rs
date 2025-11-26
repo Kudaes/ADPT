@@ -53,12 +53,12 @@ fn main()
     opts.reqopt("m", "mode", "Create a dll to trace (trace) or proxy (proxy) called exports.", "");
     opts.optflag("h", "help", "Print this help menu.");
     opts.reqopt("p", "path", "Path to the dll to be proxied.", "");
-    opts.optopt("e", "export", "A comma separated list containing the exports in which to run the payload.", "");
+    opts.optopt("e", "export", "A comma separated list containing the exports in which to run the payload (set it to 'ALL' to indicate all exports).", "");
     opts.optopt("l", "logpath", r"Path in which to write the log file [default: C:\Windows\Temp\result.log].", "");
     opts.optflag("n", "native", "Use NtCreateThreadEx instead of std::thread to run the payload.");
     opts.optflag("c", "current-thread", "Hijack the calling thread instead of running the payload in a new thread.");
     opts.optflag("r", "link-runtime", "Statically link the C runtime.");
-
+    opts.optflag("f", "force-multiple", "Allow duplicated symbol names.");
 
     let matches = match opts.parse(&args[1..]) 
     {
@@ -76,6 +76,7 @@ fn main()
     let mut native = "false".to_string();
     let mut hijack = false;
     let mut link_runtime = false;
+    let mut force_multiple = false;
     let path = matches.opt_str("p").unwrap();
     let mode = matches.opt_str("m").unwrap();
 
@@ -101,10 +102,14 @@ fn main()
         link_runtime = true;
     }
 
+    if matches.opt_present("f") {
+        force_multiple = true;
+    }
+
     if mode == "trace" {
         generate_tracer_dll(path, log_path, link_runtime);
     } else if mode == "proxy" {
-        generate_proxy_dll(path, hijacked_exports_vector, native, hijack, link_runtime);
+        generate_proxy_dll(path, hijacked_exports_vector, native, hijack, link_runtime, force_multiple);
     } else {
         println!("[x] Unknown mode '{}'.", mode);
         return;
@@ -121,7 +126,6 @@ fn print_usage(program: &str, opts: Options) {
 
 fn demangle_name(mangled_name: &String, ordinal: u32) -> String
 {
-
     if mangled_name.is_empty() {
         let placeholder = format!("{}{}", "OrdinalPlaceholder", ordinal);
         return placeholder;
@@ -210,7 +214,7 @@ fn generate_tracer_dll(original_dll_path: String, log_path: String, link_runtime
 
 }
 
-fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, native: String, hijack: bool, link_runtime: bool)
+fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, native: String, hijack: bool, link_runtime: bool, force_multiple: bool)
 {
     if original_dll_path.chars().any(|c| c.is_whitespace()) {
         println!("[x] The forwarded dll path can't contain spaces in it. Use DOS short name instead.");
@@ -238,6 +242,12 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
 
     let mut mangled_names_detected = false;
     let mut index = 0u32;
+    let all_exports = if hijacked_exports.len() == 1 && hijacked_exports[0] == "ALL" {
+        true
+    }else {
+        false
+    };
+    
     for (_, name) in names_info.iter().enumerate()
     {
         let demangled_name = demangle_name(&name.0, name.1);
@@ -247,9 +257,14 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
             println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols.");
         }
 
-        if !&name.0.is_empty() && hijacked_exports.contains(&name.0.as_str())
+        if all_exports || hijacked_exports.contains(&name.0.as_str()) ||  hijacked_exports.contains(&demangled_name.as_str())
         {
-            println!("[+] Exported function {} found.", &name.0);
+            if name.0.is_empty() {
+                let ordinal_number = demangled_name.strip_prefix("OrdinalPlaceholder").unwrap_or("0").parse::<u32>().unwrap_or(0);
+                println!("[+] Exported function with ordinal {} found.", ordinal_number);
+            } else {
+                println!("[+] Exported function {} found.", &name.0);
+            }
             let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
             first_string.push_str(&template4);
 
@@ -262,7 +277,11 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
 
             let export_string;
             if demangled_name != name.0 {
-                export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+                if demangled_name.contains("OrdinalPlaceholder") {
+                    export_string = format!("{}={} @{} NONAME\n", demangled_name, demangled_name, name.1);
+                } else {
+                    export_string = format!("{}={} @{}\n",&name.0, demangled_name, name.1);
+                }
             } else {
                 export_string = format!("{} @{}\n", &name.0, name.1);
             }
@@ -308,7 +327,8 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
     content = content.replace("{DLL_NAME}", &original_dll_path)
                 .replace("{NUM_FUNCTIONS}", &number_of_functions)
                 .replace("{NATIVE}", &native)
-                .replace("{MATCH_STATEMENT}", &match_statement);
+                .replace("{MATCH_STATEMENT}", &match_statement)
+                .replace("{NUM_EXPORTS}", &index.to_string());
             
     content.push_str(&first_string);
     content.push_str(&third_string);
@@ -326,6 +346,10 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
     config_content = config_content.replace("{DEF_PATH}", &def_path);
     if link_runtime {
         config_content = config_content.replace(r##"#"-C", "target-feature=+crt-static""##, r#""-C", "target-feature=+crt-static""#);
+    }
+
+    if force_multiple {
+        config_content = config_content.replace(r##"#"-C", "link-arg=/FORCE:MULTIPLE""##, r#""-C", "link-arg=/FORCE:MULTIPLE""#);
     }
 
     let _ = fs::write(config_path, config_content);

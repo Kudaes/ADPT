@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate litcrypt2;
+use_litcrypt!();
+
+use litcrypt2::lc;
 use std::sync::{Arc, Mutex};
 use std::{ptr, thread};
 use dinvoke_rs::data::PVOID;
@@ -5,14 +10,14 @@ use lazy_static::lazy_static;
 use windows::Win32::Foundation::HANDLE;
 
 const NATIVE: bool = {NATIVE};
-const DLL_NAME: &str = r"{DLL_NAME}";
-static mut ADDRESS: usize = 0;
+static mut ADDRESS: [usize;{NUM_EXPORTS}] = [0;{NUM_EXPORTS}];
 lazy_static! {
     static ref MUTEX: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 }
 
 fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64, arg8:u64, arg9:u64, arg10:u64, arg11:u64, arg12:u64, arg13:u64, arg14:u64, arg15:u64, arg16:u64, arg17:u64, arg18:u64, arg19:u64, arg20:u64, index: u32) -> u64 
 {
+    let dll_name = &lc!(r"{DLL_NAME}");
     let flag = Arc::clone(&MUTEX);
     let mut flag = flag.lock().unwrap(); 
     if *flag == 0
@@ -57,9 +62,9 @@ fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64,
     
     unsafe
     {
-        if ADDRESS != 0
+        if ADDRESS[index as usize] != 0
         {
-            let func: extern "system" fn (u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64) -> u64 = std::mem::transmute(ADDRESS);
+            let func: extern "system" fn (u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64) -> u64 = std::mem::transmute(ADDRESS[index as usize]);
             let ret = func(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
             return ret;
         }   
@@ -74,20 +79,25 @@ fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64,
         return 0;
     }
 
-    let dll_address = dinvoke_rs::dinvoke::load_library_a(DLL_NAME);
+    let dll_address = dinvoke_rs::dinvoke::load_library_a(dll_name);
     if dll_address == 0 {
         return 0;
     }
 
-    let func_address = dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name);
+    let func_address = if func_name.contains("OrdinalPlaceholder") {
+        let ordinal_number = func_name.strip_prefix("OrdinalPlaceholder").unwrap_or("0").parse::<u32>().unwrap_or(0);
+        dinvoke_rs::dinvoke::ldr_get_procedure_address(dll_address, "", ordinal_number)
+    } else {
+        dinvoke_rs::dinvoke::get_function_address(dll_address, &func_name)
+    };
     if func_address == 0 {
         return 0;
     }
     
     unsafe
     {
-        ADDRESS = func_address;
-        let func: extern "system" fn (u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64) -> u64 = std::mem::transmute(ADDRESS);
+        ADDRESS[index as usize] = func_address;
+        let func: extern "system" fn (u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64,u64) -> u64 = std::mem::transmute(func_address);
         let ret = func(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20);
         return ret;
     }

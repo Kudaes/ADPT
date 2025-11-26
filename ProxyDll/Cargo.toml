@@ -1,10 +1,13 @@
 [package]
-name = "proxydll"
+name = "proxydll" # Change it to the PE's name before compiling
 version = "0.1.0"
 edition = "2021"
 
 [profile.release]
 strip = true  
+opt-level = 'z'
+codegen-units = 1
+lto = true
 
 [lib]
 crate-type = ["cdylib"]
@@ -12,6 +15,7 @@ crate-type = ["cdylib"]
 [dependencies]
 dinvoke_rs= "=0.2.0"
 lazy_static = "*"
+litcrypt2 = "=0.1.2"
 
 [dependencies.windows]
 version = "0.51"
