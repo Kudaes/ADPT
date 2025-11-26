@@ -39,7 +39,7 @@ The log file will contain one line for each called exported function, allowing y
 
 ![Called functions log file example.](/Images/LogFile.PNG "Called functions log file example.")
 
-With that info, you just need to indicate to the `Generator` the exported function that you want to use in order to run your payload. I'm going to use the first function that has been called, `ShapingCreateFontCacheData` (to select a function exclusively exported by ordinal use the name 'OrdinalPlaceholder<num>' where <num> is the ordinal itself): 
+With that info, you just need to indicate to the `Generator` the exported function that you want to use in order to run your payload. I'm going to use the first function that has been called, `ShapingCreateFontCacheData` (to select a function exclusively exported by ordinal use the name `OrdinalPlaceholder<num>` where `<num>` is the ordinal itself): 
 
 	C:\Users\User\Desktop\ADPT\Generator\target\release> generator.exe -m proxy -p C:\Windows\System32\TextShaping.dll -e ShapingCreateFontCacheData
 
