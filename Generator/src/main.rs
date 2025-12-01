@@ -268,7 +268,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
             let template4 = TEMPLATE4.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
             first_string.push_str(&template4);
 
-            let template5 = TEMPLATE5.replace("{FUNC_NAME}", &demangled_name).replace("{INDEX}", &index.to_string());
+            let template5 = TEMPLATE5.replace("{FUNC_NAME}", &name.0).replace("{INDEX}", &index.to_string());
             match_statement.push_str("\t\t");
             match_statement.push_str(&template5);
             match_statement.push_str("\n");
