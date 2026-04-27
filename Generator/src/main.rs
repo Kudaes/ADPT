@@ -254,7 +254,7 @@ fn generate_proxy_dll(original_dll_path: String, hijacked_exports: Vec<&str>, na
         if !mangled_names_detected && (demangled_name != name.0) && !demangled_name.contains("OrdinalPlaceholder")
         {
             mangled_names_detected = true;
-            println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols.");
+            println!("[!] Exported functions with mangled names detected in the source DLL. Proxying will be disabled for those symbols (use '-e' flag to proxy those symbols).");
         }
 
         if all_exports || hijacked_exports.contains(&name.0.as_str()) ||  hijacked_exports.contains(&demangled_name.as_str())
