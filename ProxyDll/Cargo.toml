@@ -13,7 +13,7 @@ lto = true
 crate-type = ["cdylib"]
 
 [dependencies]
-dinvoke_rs= "=0.2.0"
+dinvoke_rs= "=0.2.2"
 lazy_static = "*"
 litcrypt2 = "=0.1.2"
 
